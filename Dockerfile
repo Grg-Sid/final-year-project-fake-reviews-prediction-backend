@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN pip install --no-cache-dir fastapi uvicorn joblib onnxruntime numpy nltk scikit-learn
+RUN pip install --no-cache-dir -r requirements.txt
 
 RUN python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords'); nltk.download('punkt_tab')"
 
