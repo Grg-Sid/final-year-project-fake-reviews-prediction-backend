@@ -40,6 +40,9 @@ class AnalysisStatus(BaseModel):
     file_type: Optional[str] = None
     upload_id: Optional[str] = None
     file_name: Optional[str] = None
+    total_reviews: Optional[int] = None
+    flagged_reviews: Optional[int] = None
+    confidence_score: Optional[float] = None
 
 
 class HealthResponse(BaseModel):

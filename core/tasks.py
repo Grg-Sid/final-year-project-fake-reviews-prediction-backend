@@ -6,7 +6,7 @@ import pandas as pd
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 
-from schemas import ReviewRequest, AnalysisStatus  # Import needed schemas
+from schemas import ReviewRequest
 from core.config import RESULTS_DIR, get_logger
 from processing.ml import predict_single_review  # Import core prediction logic
 from processing.file_handling import extract_text_from_pdf  # Import PDF logic
@@ -265,6 +265,10 @@ async def process_file_async(
             f"/api/files/analysis/{analysis_id}/download"  # Relative API path
         )
         job["updated_at"] = datetime.now().isoformat()
+        job["total_reviews"] = total_items
+        job["flagged_reviews"] = sum(
+            1 for result in results if result.get("flagged", False)
+        )
         logger.info(f"Successfully completed processing for analysis_id: {analysis_id}")
 
     except ValueError as ve:  # Specific expected errors like missing columns
@@ -284,13 +288,13 @@ async def process_file_async(
     finally:
         # Optional: Clean up the uploaded file after processing?
         # Consider adding logic here or in a separate cleanup task
-        # try:
-        #     if os.path.exists(file_path):
-        #         os.remove(file_path)
-        #         logger.info(f"Removed uploaded file: {file_path}")
-        # except Exception as remove_e:
-        #     logger.warning(f"Could not remove upload file {file_path}: {remove_e}")
-        pass  # Keep uploaded file for now, cleanup handled separately
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                logger.info(f"Removed uploaded file: {file_path}")
+        except Exception as remove_e:
+            logger.warning(f"Could not remove upload file {file_path}: {remove_e}")
+        # pass  # Keep uploaded file for now, cleanup handled separately
 
 
 # --- Functions to manage jobs (can be expanded) ---

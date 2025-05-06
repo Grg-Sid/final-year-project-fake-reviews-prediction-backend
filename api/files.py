@@ -193,6 +193,9 @@ async def process_uploaded_file(upload_id: str, background_tasks: BackgroundTask
         "file_type": file_type,
         "upload_id": upload_id,
         "file_name": original_filename,  # Store the original filename
+        "total_reviews": None,
+        "flagged_reviews": None,
+        "confidence_score": None,
     }
 
     # Add job to the in-memory store (using helper function)
