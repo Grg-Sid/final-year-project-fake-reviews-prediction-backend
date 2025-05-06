@@ -11,13 +11,15 @@ from core.config import RESULTS_DIR, get_logger
 from processing.ml import predict_single_review  # Import core prediction logic
 from processing.file_handling import extract_text_from_pdf  # Import PDF logic
 from processing.reporting import generate_pdf_report  # Import report logic
+from core.db import (
+    insert_analysis_job,
+    get_analysis_job_by_id,
+    update_analysis_job,
+    delete_analysis_job,
+    get_all_analysis_jobs_from_db,
+)
 
 logger = get_logger(__name__)
-
-# --- In-memory storage for analysis jobs ---
-# NOTE: This is simple but will be lost if the server restarts.
-# For production, consider using Redis, a database, or another persistent store.
-analysis_jobs: Dict[str, Dict[str, Any]] = {}
 
 
 # --- Background Task Function ---
@@ -25,11 +27,10 @@ async def process_file_async(
     upload_id: str, file_path: str, file_type: str, analysis_id: str
 ):
     """Process uploaded file asynchronously and update job status."""
-    global analysis_jobs  # Modifying the global dictionary
-    job = analysis_jobs.get(analysis_id)
+    job = get_analysis_job_by_id(analysis_id)
     if not job:
         logger.error(
-            f"Analysis job {analysis_id} not found in memory store during processing."
+            f"Analysis job {analysis_id} not found in database during processing."
         )
         return  # Should not happen if called correctly
 
@@ -40,6 +41,7 @@ async def process_file_async(
         # Update job status to processing
         job["status"] = "processing"
         job["updated_at"] = datetime.now().isoformat()
+        update_analysis_job(analysis_id, job)  # Update in DB
 
         results = []
         total_items = 0
@@ -59,6 +61,7 @@ async def process_file_async(
                 job["status"] = "failed"
                 job["error_message"] = f"Failed to read CSV file: {read_e}"
                 job["updated_at"] = datetime.now().isoformat()
+                update_analysis_job(analysis_id, job)  # Update in DB
                 logger.error(f"Failed to read CSV for job {analysis_id}: {read_e}")
                 return  # Stop processing
 
@@ -156,6 +159,7 @@ async def process_file_async(
                         )
                         job["progress"] = round(progress, 2)
                         job["updated_at"] = datetime.now().isoformat()
+                        update_analysis_job(analysis_id, job)  # Update in DB
                         # logger.debug(f"Job {analysis_id} progress: {job['progress']:.1f}%")
                         await asyncio.sleep(0.001)  # Yield control briefly
 
@@ -211,6 +215,7 @@ async def process_file_async(
                         )
                         job["progress"] = round(progress, 2)
                         job["updated_at"] = datetime.now().isoformat()
+                        update_analysis_job(analysis_id, job)  # Update in DB
                         # logger.debug(f"Job {analysis_id} progress: {job['progress']:.1f}%")
                         await asyncio.sleep(
                             0.005
@@ -269,6 +274,7 @@ async def process_file_async(
         job["flagged_reviews"] = sum(
             1 for result in results if result.get("flagged", False)
         )
+        update_analysis_job(analysis_id, job)  # Final update in DB
         logger.info(f"Successfully completed processing for analysis_id: {analysis_id}")
 
     except ValueError as ve:  # Specific expected errors like missing columns
@@ -278,6 +284,7 @@ async def process_file_async(
         job["status"] = "failed"
         job["error_message"] = str(ve)
         job["updated_at"] = datetime.now().isoformat()
+        update_analysis_job(analysis_id, job)  # Update in DB
     except Exception as e:
         logger.exception(
             f"Unexpected error processing file for analysis_id {analysis_id}: {str(e)}"
@@ -285,6 +292,7 @@ async def process_file_async(
         job["status"] = "failed"
         job["error_message"] = f"An unexpected error occurred: {str(e)}"
         job["updated_at"] = datetime.now().isoformat()
+        update_analysis_job(analysis_id, job)  # Update in DB
     finally:
         # Optional: Clean up the uploaded file after processing?
         # Consider adding logic here or in a separate cleanup task
@@ -299,19 +307,15 @@ async def process_file_async(
 
 # --- Functions to manage jobs (can be expanded) ---
 def add_analysis_job(job_data: Dict[str, Any]) -> str:
-    global analysis_jobs
     analysis_id = job_data["analysis_id"]
-    analysis_jobs[analysis_id] = job_data
+    insert_analysis_job(job_data)  # Store in DB
     logger.info(f"Added new analysis job: {analysis_id}")
     return analysis_id
 
 
 def get_analysis_job(analysis_id: str) -> Optional[Dict[str, Any]]:
-    global analysis_jobs
-    return analysis_jobs.get(analysis_id)
+    return get_analysis_job_by_id(analysis_id) 
 
 
 def get_all_analysis_jobs() -> List[Dict[str, Any]]:
-    global analysis_jobs
-    # Return list of job dicts
-    return list(analysis_jobs.values())
+    return get_all_analysis_jobs_from_db() 

@@ -6,3 +6,4 @@ uploads/
 
 # Files
 temp.py
+*.db

@@ -13,6 +13,7 @@ from core.config import (
     LOGGING_LEVEL,
 )
 from utils.cleanup import cleanup_old_files
+from core.db import create_tables  # Import the function
 
 # --- Logging Setup ---
 logging.basicConfig(
@@ -76,6 +77,8 @@ async def startup_event():
     logger.info("Application starting up...")
     logger.info(f"Upload directory: {UPLOAD_DIR}")
     logger.info(f"Results directory: {RESULTS_DIR}")
+
+    create_tables()  # Initialize the database
 
     background_tasks = BackgroundTasks()
     background_tasks.add_task(cleanup_old_files)
